@@ -4,19 +4,32 @@ Node.js + Express API for the FindBid app. Implements all endpoints from the [AP
 
 ## Setup
 
-1. **Install dependencies**
+1. **Install dependencies** (Node 18+ required; use `nvm use` if you have nvm)
    ```bash
    cd FindBid-Backend
+   nvm use          # or: nvm use 18
    npm install
    ```
+   If install fails (e.g. ENOTEMPTY), try: `rm -rf node_modules package-lock.json && npm install`
 
 2. **Environment**
-   - Copy `.env.example` to `.env` and fill in values (optional for local dev).
-   - `PORT` – server port (default `3001`).
-   - `CORS_ORIGIN` – allowed origins, comma-separated (e.g. `http://localhost:5173`).
-   - `AUTH_SECRET` / `DATABASE_URL` – leave empty until you add auth/DB.
+   - Copy `.env.example` to `.env` and set:
+     - **`DATABASE_URL`** – MySQL connection string (required). For **TiDB Cloud** (and any host that requires TLS), append `?sslaccept=strict` to the URL (e.g. `mysql://user:pass@host:4000/dbname?sslaccept=strict`). Local MySQL: `mysql://user:password@localhost:3306/findbid`
+     - **`OPENAI_API_KEY`** – optional; for AI refine endpoint (`POST /v1/ai/refine`).
+     - `PORT` – server port (default `3001`).
+     - `CORS_ORIGIN` – allowed origins, comma-separated (e.g. `http://localhost:5173`).
 
-3. **Run**
+3. **Database** (run these from the **FindBid-Backend** directory)
+   - Create a MySQL database (e.g. `findbid`).
+   - Push schema and seed:
+   ```bash
+   cd FindBid-Backend
+   npx prisma generate   # use npx so the local prisma CLI is used
+   npx prisma db push
+   npm run db:seed
+   ```
+
+4. **Run**
    ```bash
    npm run dev
    ```
@@ -42,16 +55,12 @@ Node.js + Express API for the FindBid app. Implements all endpoints from the [AP
 | POST | `/bids/:id/accept` | Accept bid (user) |
 | GET | `/providers` | List providers (`?serviceType=&search=&lat=&lng=&radiusKm=`) |
 | GET | `/providers/:id` | Get one provider |
-| GET | `/conversations` | List conversations |
-| POST | `/conversations` | Create/get conversation (`body: { participantId }`) |
-| GET | `/conversations/:id/messages` | List messages |
-| POST | `/conversations/:id/messages` | Send message (`body: { content, type? }`) |
-| GET | `/activity` | Activity feed (`?limit=20`) |
+| POST | `/ai/refine` | AI refine request text (body: `{ text }`) |
 
 ## Data
 
-- **In-memory store** with seed data is used by default so the API works without a database.
-- When you add a real DB, set `DATABASE_URL` in `.env` and swap the store in `src/store.js` for your DB layer.
+- **MySQL + Prisma**. Set `DATABASE_URL` in `.env`, run `npx prisma db push` and `npm run db:seed`.
+- Schema: `Provider`, `Request`, `Bid` (see `prisma/schema.prisma`).
 
 ## Auth
 

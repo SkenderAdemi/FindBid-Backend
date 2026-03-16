@@ -1,0 +1,64 @@
+// FindBid – MySQL + Prisma
+// Set DATABASE_URL in .env (e.g. mysql://user:password@localhost:3306/findbid)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Provider {
+  id          String   @id @default(cuid())
+  name        String
+  rating      Float    @default(4.5)
+  serviceType String
+  lat         Float
+  lng         Float
+  address     String?
+  available   Boolean  @default(true)
+  email       String?
+  createdAt   DateTime @default(now())
+  bids        Bid[]
+
+  @@map("providers")
+}
+
+model Request {
+  id            String   @id @default(cuid())
+  userId        String
+  userName      String
+  serviceType   String
+  lat           Float
+  lng           Float
+  address       String   @default("")
+  requestedTime DateTime
+  message       String   @default("")
+  status        String   @default("bidding")
+  createdAt     DateTime @default(now())
+  bids          Bid[]
+
+  @@map("requests")
+}
+
+model Bid {
+  id             String   @id @default(cuid())
+  requestId      String
+  providerId     String
+  providerName   String
+  providerRating Float
+  price          Float
+  availableTime  String   @default("")
+  message        String   @default("")
+  distance       Float
+  status         String   @default("pending")
+  createdAt      DateTime @default(now())
+  request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  provider       Provider @relation(fields: [providerId], references: [id])
+
+  @@index([requestId])
+  @@index([providerId])
+  @@map("bids")
+}
