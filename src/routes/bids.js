@@ -23,7 +23,6 @@ export async function createBid(req, res, next) {
     const reqEntity = await store.getRequest(requestId);
     if (!reqEntity) return res.status(404).json({ error: 'not_found', message: 'Request not found' });
     const { price, availableTime, message, status, distance } = req.body || {};
-    console.log(status);
     
     if (price == null) return res.status(400).json({ error: 'bad_request', message: 'price required' });
     const providerId = req.body.providerId || req.userId || 'p1';
