@@ -9,8 +9,8 @@ import aiRouter from './routes/ai.js';
 const app = express();
 
 const corsOrigins = [
-  'https://find-bid.vercel.app',
   'https://findbid.live',
+  'https://find-bid.vercel.app',
   ...(process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()).filter(Boolean) ?? []),
 ];
 app.use(cors({
