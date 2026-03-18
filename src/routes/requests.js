@@ -5,10 +5,10 @@ import { listBids, createBid } from './bids.js';
 const router = Router();
 
 /** GET /requests - List current user's requests */
-router.get('/', async (req, res, next) => {
+router.get('/myRequests/:userId', async (req, res, next) => {
   try {
     const status = req.query.status;
-    const list = await store.listRequests(req.userId, status);
+    const list = await store.listRequests(req.params.userId, status);
     res.json(list);
   } catch (err) {
     next(err);
@@ -46,18 +46,22 @@ router.get('/:id', async (req, res, next) => {
 /** POST /requests - Create request */
 router.post('/', async (req, res, next) => {
   try {
-    const { serviceType, time, location, lat, lng, radius, message } = req.body || {};
+    const { serviceType, time, location, lat, lng, radius, message, phone, userId, userName, status } = req.body || {};
     if (!serviceType || !time) {
       return res.status(400).json({ error: 'bad_request', message: 'serviceType and time required' });
     }
-    const created = await store.createRequest(req.userId, req.userName, {
+    const created = await store.createRequest({
       serviceType,
       time,
+      userId,
+      userName,
+      status,
       location: location || '',
       lat,
       lng,
       radius: radius ?? 5,
       message: message || '',
+      phone: phone || '',
     });
     res.status(201).json(created);
   } catch (err) {

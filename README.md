@@ -21,13 +21,16 @@ Node.js + Express API for the FindBid app. Implements all endpoints from the [AP
 
 3. **Database** (run these from the **FindBid-Backend** directory)
    - Create a MySQL database (e.g. `findbid`).
+   - **Use Node 18+** (required for Prisma). If you see `WebAssembly.Module(): invalid value type 'externref'`, run `nvm use 18` (or install Node 18/20).
    - Push schema and seed:
    ```bash
    cd FindBid-Backend
-   npx prisma generate   # use npx so the local prisma CLI is used
-   npx prisma db push
+   nvm use 18              # or nvm use 20 — required before Prisma commands
+   npx prisma generate
+   npx prisma db push      # applies schema to DB (adds/updates columns like phone)
    npm run db:seed
    ```
+   - **Updating the DB after schema changes:** run `npx prisma generate` then `npx prisma db push` again. Use `npx prisma db push --force-reset` only if you want to drop all data and recreate tables (dev only).
 
 4. **Run**
    ```bash

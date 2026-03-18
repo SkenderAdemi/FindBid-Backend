@@ -23,6 +23,7 @@ function mapRequest(r) {
     id: r.id,
     userId: r.userId,
     userName: r.userName,
+    phone: r.phone,
     serviceType: r.serviceType,
     location: { lat: r.lat, lng: r.lng, address: r.address || '' },
     requestedTime: r.requestedTime instanceof Date ? r.requestedTime.toISOString().slice(0, 19) : r.requestedTime,
@@ -62,6 +63,7 @@ function mapProvider(p) {
   };
 }
 
+/** Prisma include for Request so responses have bids */
 const requestInclude = { bids: true };
 
 export const store = {
@@ -69,10 +71,15 @@ export const store = {
     const where = {};
     if (userId) where.userId = userId;
     if (status === 'active') where.status = { in: ['pending', 'bidding'] };
+    else if (status === 'accepted') where.status = 'accepted';
     else if (status === 'completed') where.status = 'completed';
     else if (status === 'cancelled') where.status = 'cancelled';
 
-    const list = await prisma.request.findMany({ where, include: requestInclude, orderBy: { createdAt: 'desc' } });
+    const list = await prisma.request.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: requestInclude,
+    });
     return list.map(mapRequest);
   },
 
@@ -81,7 +88,7 @@ export const store = {
     return mapRequest(r);
   },
 
-  async createRequest(userId, userName, payload) {
+  async createRequest(payload) {
     const date = new Date().toISOString().slice(0, 10);
     const time = payload.time.length <= 5 ? payload.time : payload.time.slice(0, 5);
     const requestedTime = new Date(`${date}T${time}:00`);
@@ -90,15 +97,16 @@ export const store = {
 
     const r = await prisma.request.create({
       data: {
-        userId,
-        userName: userName || 'User',
+        userId: payload.userId,
+        userName: payload.userName || 'User',
         serviceType: payload.serviceType,
         lat,
         lng,
         address: payload.location || '',
+        phone: payload.phone || '',
         requestedTime,
         message: payload.message || '',
-        status: 'bidding',
+        status: payload.status,
       },
       include: requestInclude,
     });
@@ -152,10 +160,15 @@ export const store = {
 
     const provider = await prisma.provider.findUnique({ where: { id: providerId } }).catch(() => null)
       || (await prisma.provider.findFirst());
-    const distance = provider
+    const computedDistance = provider
       ? haversineKm(req.lat, req.lng, provider.lat, provider.lng)
       : 1;
-    const roundedDistance = Math.round(distance * 10) / 10;
+    const distance = payload.distance != null && typeof payload.distance === 'number'
+      ? Math.round(Number(payload.distance) * 10) / 10
+      : Math.round(computedDistance * 10) / 10;
+    const status = (payload.status === 'approved' || payload.status === 'modified')
+      ? payload.status
+      : (payload.status || 'pending');
 
     const bid = await prisma.bid.create({
       data: {
@@ -166,8 +179,8 @@ export const store = {
         price: Number(payload.price),
         availableTime: payload.availableTime || '',
         message: payload.message || '',
-        distance: roundedDistance,
-        status: 'pending',
+        distance,
+        status: status === 'approved' ? 'pending' : status,
       },
     });
     return mapBid(bid);
