@@ -8,8 +8,13 @@ import aiRouter from './routes/ai.js';
 
 const app = express();
 
+const corsOrigins = [
+  'https://find-bid.vercel.app',
+  'https://findbid.live',
+  ...(process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()).filter(Boolean) ?? []),
+];
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()).filter(Boolean) || true,
+  origin: corsOrigins.length > 1 ? corsOrigins : corsOrigins[0] || true,
   credentials: true,
 }));
 
