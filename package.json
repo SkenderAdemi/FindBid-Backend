@@ -10,13 +10,14 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "node prisma/seed.js"
+    "db:seed": "node prisma/seed.js",
+    "db:manual-properties": "node prisma/run-manual-properties-migration.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
   },
   "engines": {
-    "node": "24.x"
+    "node": ">=18.0.0 <=22.x"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",

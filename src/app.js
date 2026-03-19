@@ -4,6 +4,7 @@ import { optionalAuth } from './middleware/auth.js';
 import requestsRouter from './routes/requests.js';
 import bidsStandaloneRouter from './routes/bidsStandalone.js';
 import providersRouter from './routes/providers.js';
+import propertiesRouter from './routes/properties.js';
 import aiRouter from './routes/ai.js';
 
 const app = express();
@@ -26,6 +27,7 @@ const v1 = express.Router();
 v1.use('/requests', requestsRouter);
 v1.use('/bids', bidsStandaloneRouter);
 v1.use('/providers', providersRouter);
+v1.use('/properties', propertiesRouter);
 v1.use('/ai', aiRouter);
 
 app.use('/v1', v1);

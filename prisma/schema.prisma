@@ -10,19 +10,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id         String     @id
+  email     String?    @unique
+  createdAt DateTime   @default(now())
+  providers Provider[]
+
+  @@map("users")
+}
+
 model Provider {
   id          String   @id @default(cuid())
+  userId      String?  @unique
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   name        String
+  description String?
   rating      Float    @default(4.5)
   serviceType String
   lat         Float
   lng         Float
   address     String?
   available   Boolean  @default(true)
-  email       String?
+  email       String?  @unique
   createdAt   DateTime @default(now())
   bids        Bid[]
 
+  @@index([userId])
   @@map("providers")
 }
 
@@ -30,6 +43,7 @@ model Request {
   id            String   @id @default(cuid())
   userId        String
   userName      String
+  email         String   @default("")
   serviceType   String
   lat           Float
   lng           Float
@@ -63,3 +77,4 @@ model Bid {
   @@index([providerId])
   @@map("bids")
 }
+

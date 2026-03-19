@@ -3,6 +3,20 @@ import { store } from '../store.js';
 
 const router = Router();
 
+/** GET /bids/accepted-for-my-provider?userId= - Accepted bids where provider belongs to this userId */
+router.get('/accepted-for-my-provider', async (req, res, next) => {
+  try {
+    const userId = req.query.userId != null ? String(req.query.userId).trim() : '';
+    if (!userId) {
+      return res.status(400).json({ error: 'validation_error', message: 'userId query param required' });
+    }
+    const list = await store.listAcceptedBidsForUserId(userId);
+    res.json(list);
+  } catch (err) {
+    next(err);
+  }
+});
+
 /** POST /bids/:id/accept - Accept a bid (user) */
 router.post('/:id/accept', async (req, res, next) => {
   try {

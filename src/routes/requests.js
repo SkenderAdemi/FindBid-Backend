@@ -46,7 +46,7 @@ router.get('/:id', async (req, res, next) => {
 /** POST /requests - Create request */
 router.post('/', async (req, res, next) => {
   try {
-    const { serviceType, time, location, lat, lng, radius, message, phone, userId, userName, status } = req.body || {};
+    const { serviceType, time, location, lat, lng, radius, message, phone, userId, userName, email, status } = req.body || {};
     if (!serviceType || !time) {
       return res.status(400).json({ error: 'bad_request', message: 'serviceType and time required' });
     }
@@ -55,6 +55,7 @@ router.post('/', async (req, res, next) => {
       time,
       userId,
       userName,
+      email: email ?? '',
       status,
       location: location || '',
       lat,

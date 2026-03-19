@@ -31,6 +31,7 @@ Node.js + Express API for the FindBid app. Implements all endpoints from the [AP
    npm run db:seed
    ```
    - **Updating the DB after schema changes:** run `npx prisma generate` then `npx prisma db push` again. Use `npx prisma db push --force-reset` only if you want to drop all data and recreate tables (dev only).
+   - **If `prisma db push` fails**, you can add the Admin columns to `providers` manually: run the SQL in `prisma/manual_add_properties.sql` in your MySQL client, or run `npm run db:manual-properties` (uses Prisma, no mysql CLI). Then run `npx prisma generate`.
 
 4. **Run**
    ```bash
@@ -58,6 +59,9 @@ Node.js + Express API for the FindBid app. Implements all endpoints from the [AP
 | POST | `/bids/:id/accept` | Accept bid (user) |
 | GET | `/providers` | List providers (`?serviceType=&search=&lat=&lng=&radiusKm=`) |
 | GET | `/providers/:id` | Get one provider |
+| GET | `/properties/mine` | Get current user's property listing (provider row; optional auth) |
+| POST | `/properties` | Create/register property (one per user; uses providers table) |
+| GET | `/properties/:id` | Get one property (provider) by id |
 | POST | `/ai/refine` | AI refine request text (body: `{ text }`) |
 
 ## Data

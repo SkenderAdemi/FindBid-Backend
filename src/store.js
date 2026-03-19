@@ -23,6 +23,7 @@ function mapRequest(r) {
     id: r.id,
     userId: r.userId,
     userName: r.userName,
+    email: r.email ?? '',
     phone: r.phone,
     serviceType: r.serviceType,
     location: { lat: r.lat, lng: r.lng, address: r.address || '' },
@@ -63,6 +64,22 @@ function mapProvider(p) {
   };
 }
 
+/** Map provider to property-like shape for GET/POST /properties API (Admin uses providers table, one per userId). */
+function mapProviderToPropertyShape(p) {
+  if (!p) return null;
+  return {
+    id: p.id,
+    userId: p.userId ?? '',
+    userEmail: p.email ?? '',
+    title: p.name,
+    description: p.description ?? '',
+    address: p.address ?? undefined,
+    lat: p.lat,
+    lng: p.lng,
+    createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
+  };
+}
+
 /** Prisma include for Request so responses have bids */
 const requestInclude = { bids: true };
 
@@ -99,6 +116,7 @@ export const store = {
       data: {
         userId: payload.userId,
         userName: payload.userName || 'User',
+        email: payload.email ?? '',
         serviceType: payload.serviceType,
         lat,
         lng,
@@ -209,6 +227,23 @@ export const store = {
     return mapBid(updated);
   },
 
+  async listAcceptedBidsForUserId(userId) {
+    if (!userId || String(userId).trim() === '') return [];
+    const provider = await prisma.provider.findUnique({ where: { userId } });
+    if (!provider) return [];
+    console.log(provider);
+    
+    const list = await prisma.bid.findMany({
+      where: { providerId: provider.id, status: 'accepted' },
+      include: { request: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return list.map((b) => ({
+      ...mapBid(b),
+      request: b.request ? mapRequest(b.request) : null,
+    }));
+  },
+
   async listProviders(filters = {}) {
     const where = {};
     if (filters.serviceType && filters.serviceType !== 'all') {
@@ -230,5 +265,41 @@ export const store = {
   async getProvider(id) {
     const p = await prisma.provider.findUnique({ where: { id } });
     return mapProvider(p);
+  },
+
+  async getProviderByUserId(userId) {
+    if (!userId || String(userId).trim() === '') return null;
+    console.log(userId);
+    
+    const p = await prisma.provider.findUnique({ where: { userId } });
+    return p ? mapProviderToPropertyShape(p) : null;
+  },
+
+  async getProperty(id) {
+    const p = await prisma.provider.findUnique({ where: { id } });
+    return p ? mapProviderToPropertyShape(p) : null;
+  },
+
+  async createProperty(data) {
+    if (data.userId) {
+      await prisma.user.upsert({
+        where: { id: data.userId },
+        create: { id: data.userId, email: data.userEmail ?? null },
+        update: { email: data.userEmail ?? undefined },
+      });
+    }
+    const p = await prisma.provider.create({
+      data: {
+        userId: data.userId || null,
+        name: data.title,
+        description: data.description ?? null,
+        serviceType: data.serviceType || 'property',
+        lat: data.lat,
+        lng: data.lng,
+        address: data.address ?? null,
+        email: data.userEmail ?? null,
+      },
+    });
+    return mapProviderToPropertyShape(p);
   },
 };
