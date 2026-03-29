@@ -73,6 +73,7 @@ function mapProviderToPropertyShape(p) {
     userEmail: p.email ?? '',
     title: p.name,
     description: p.description ?? '',
+    serviceType: p.serviceType ?? 'property',
     address: p.address ?? undefined,
     lat: p.lat,
     lng: p.lng,
@@ -149,17 +150,24 @@ export const store = {
     return this.updateRequest(id, { status: 'cancelled' });
   },
 
-  async listRequestsNearby(lat, lng, radiusKm, serviceType) {
+  async listRequestsNearby(lat, lng, radiusKm, serviceType, userId) {
+    const uid = userId != null ? String(userId).trim() : '';
+    if (!uid) {
+      return [];
+    }
+    const where = { userId: uid };
+    if (serviceType && serviceType !== 'all') {
+      where.serviceType = serviceType;
+    }
     const list = await prisma.request.findMany({
+      where,
       include: requestInclude,
       orderBy: { createdAt: 'desc' },
     });
-    const radius = radiusKm ?? 10;
+    const radius = radiusKm ?? 20;
     const filtered = list.filter((r) => {
       const km = haversineKm(lat, lng, r.lat, r.lng);
-      if (km > radius) return false;
-      if (serviceType && serviceType !== 'all' && r.serviceType !== serviceType) return false;
-      return true;
+      return km <= radius;
     });
     return filtered.map(mapRequest);
   },
@@ -269,8 +277,6 @@ export const store = {
 
   async getProviderByUserId(userId) {
     if (!userId || String(userId).trim() === '') return null;
-    console.log(userId);
-    
     const p = await prisma.provider.findUnique({ where: { userId } });
     return p ? mapProviderToPropertyShape(p) : null;
   },
@@ -298,6 +304,25 @@ export const store = {
         lng: data.lng,
         address: data.address ?? null,
         email: data.userEmail ?? null,
+      },
+    });
+    return mapProviderToPropertyShape(p);
+  },
+
+  async updatePropertyByUserId(userId, data) {
+    if (!userId || String(userId).trim() === '') return null;
+    const existing = await prisma.provider.findUnique({ where: { userId } });
+    if (!existing) return null;
+    const p = await prisma.provider.update({
+      where: { userId },
+      data: {
+        name: data.title,
+        description: data.description ?? null,
+        serviceType: data.serviceType || 'property',
+        lat: data.lat,
+        lng: data.lng,
+        ...(data.address !== undefined ? { address: data.address } : {}),
+        ...(data.userEmail != null ? { email: data.userEmail } : {}),
       },
     });
     return mapProviderToPropertyShape(p);

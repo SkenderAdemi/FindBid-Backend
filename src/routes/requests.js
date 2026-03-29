@@ -15,17 +15,21 @@ router.get('/myRequests/:userId', async (req, res, next) => {
   }
 });
 
-/** GET /requests/nearby - List requests for map */
+/** GET /requests/nearby - List current user's requests within radius (Bearer token required; scoped to req.userId) */
 router.get('/nearby', async (req, res, next) => {
   try {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.json([]);
+    }
     const lat = parseFloat(req.query.lat);
     const lng = parseFloat(req.query.lng);
-    const radiusKm = req.query.radiusKm != null ? parseFloat(req.query.radiusKm) : 10;
+    const radiusKm = req.query.radiusKm != null ? parseFloat(req.query.radiusKm) : 20;
     const serviceType = req.query.serviceType;
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
       return res.status(400).json({ error: 'bad_request', message: 'lat and lng required' });
     }
-    const list = await store.listRequestsNearby(lat, lng, radiusKm, serviceType);
+    const list = await store.listRequestsNearby(lat, lng, radiusKm, serviceType, req.userId);
     res.json(list);
   } catch (err) {
     next(err);
@@ -60,7 +64,7 @@ router.post('/', async (req, res, next) => {
       location: location || '',
       lat,
       lng,
-      radius: radius ?? 5,
+      radius: radius ?? 20,
       message: message || '',
       phone: phone || '',
     });
