@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { store } from '../store.js';
+import { emitToUser } from '../realtime.js';
 
 const router = Router();
 
@@ -34,6 +35,13 @@ export async function createBid(req, res, next) {
       distance: distance != null ? Number(distance) : undefined,
     });
     if (!bid) return res.status(500).json({ error: 'server_error', message: 'Failed to create bid' });
+    if (bid.duplicate) {
+      return res.status(409).json({
+        error: 'duplicate_bid',
+        message: 'This provider already submitted a bid on this request',
+      });
+    }
+    emitToUser(reqEntity.userId, { type: 'bid_created', requestId, bid });
     res.status(201).json(bid);
   } catch (err) {
     next(err);

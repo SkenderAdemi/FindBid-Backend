@@ -10,12 +10,18 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+import http from 'http';
 import app from './app.js';
+import { initRealtime } from './realtime.js';
 
 const PORT = Number(process.env.PORT) || 3001;
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+initRealtime(server);
+
+server.listen(PORT, () => {
   console.log(`FindBid API listening on http://localhost:${PORT}`);
   console.log(`  Health: http://localhost:${PORT}/health`);
   console.log(`  API:    http://localhost:${PORT}/v1/...`);
+  console.log(`  WS:     ws://localhost:${PORT}/v1/ws`);
 });

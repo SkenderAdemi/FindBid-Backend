@@ -4,6 +4,18 @@ import { listBids, createBid } from './bids.js';
 
 const router = Router();
 
+/** Require ?userId= and match authenticated user (req.userId from optionalAuth). */
+function requireQueryUserId(req, res) {
+  const userId = req.query.userId || '';
+  
+  if (!userId) {
+    res.status(400).json({ error: 'validation_error', message: 'userId is required (query param)' });
+    return null;
+  }
+  
+  return userId;
+}
+
 /** GET /requests - List current user's requests */
 router.get('/myRequests/:userId', async (req, res, next) => {
   try {
@@ -15,7 +27,7 @@ router.get('/myRequests/:userId', async (req, res, next) => {
   }
 });
 
-/** GET /requests/nearby - List current user's requests within radius (Bearer token required; scoped to req.userId) */
+/** GET /requests/nearby?userId=&lat=&lng= - List current user's requests within radius (Bearer required; userId query must match token) */
 router.get('/nearby', async (req, res, next) => {
   try {
     const header = req.headers.authorization;
@@ -29,7 +41,9 @@ router.get('/nearby', async (req, res, next) => {
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
       return res.status(400).json({ error: 'bad_request', message: 'lat and lng required' });
     }
-    const list = await store.listRequestsNearby(lat, lng, radiusKm, serviceType, req.userId);
+    const scopedUserId = requireQueryUserId(req, res);
+    if (!scopedUserId) return;
+    const list = await store.listRequestsNearby(lat, lng, radiusKm, serviceType, scopedUserId);
     res.json(list);
   } catch (err) {
     next(err);
@@ -74,12 +88,14 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-/** PATCH /requests/:id - Update request */
+/** PATCH /requests/:id?userId= - Update request */
 router.patch('/:id', async (req, res, next) => {
   try {
+    const ownerUserId = requireQueryUserId(req, res);
+    if (!ownerUserId) return;
     const reqEntity = await store.getRequest(req.params.id);
     if (!reqEntity) return res.status(404).json({ error: 'not_found', message: 'Request not found' });
-    if (reqEntity.userId !== req.userId) return res.status(403).json({ error: 'forbidden', message: 'Not your request' });
+    if (reqEntity.userId !== ownerUserId) return res.status(403).json({ error: 'forbidden', message: 'Not your request' });
     if (reqEntity.status !== 'pending' && reqEntity.status !== 'bidding') {
       return res.status(422).json({ error: 'unprocessable', message: 'Request cannot be edited' });
     }
@@ -93,14 +109,21 @@ router.patch('/:id', async (req, res, next) => {
   }
 });
 
-/** POST /requests/:id/cancel - Cancel request */
+/** POST /requests/:id/cancel?userId= - Delete request and all related bids (owner only) */
 router.post('/:id/cancel', async (req, res, next) => {
   try {
-    const reqEntity = await store.getRequest(req.params.id);
-    if (!reqEntity) return res.status(404).json({ error: 'not_found', message: 'Request not found' });
-    if (reqEntity.userId !== req.userId) return res.status(403).json({ error: 'forbidden', message: 'Not your request' });
-    const updated = await store.cancelRequest(req.params.id);
-    res.json(updated);
+    const ownerUserId = requireQueryUserId(req, res);
+    console.log(ownerUserId);
+    
+    if (!ownerUserId) return;
+    const result = await store.deleteRequestForUser(req.params.id, ownerUserId);
+    if (!result.ok) {
+      if (result.reason === 'forbidden') {
+        return res.status(403).json({ error: 'forbidden', message: 'Not your request' });
+      }
+      return res.status(404).json({ error: 'not_found', message: 'Request not found' });
+    }
+    res.json({ ok: true, id: req.params.id });
   } catch (err) {
     next(err);
   }

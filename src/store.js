@@ -56,6 +56,7 @@ function mapProvider(p) {
   return {
     id: p.id,
     name: p.name,
+    address: p.address ?? '',
     rating: p.rating,
     serviceType: p.serviceType,
     location: { lat: p.lat, lng: p.lng },
@@ -146,6 +147,20 @@ export const store = {
     return mapRequest(r);
   },
 
+  /**
+   * Permanently delete a service request and all related bids (DB cascade).
+   * @returns {{ ok: true }} | {{ ok: false, reason: 'not_found' | 'forbidden' }}
+   */
+  async deleteRequestForUser(id, ownerUserId) {
+    if (!id || !ownerUserId) return { ok: false, reason: 'not_found' };
+    const r = await prisma.request.findUnique({ where: { id } });
+    if (!r) return { ok: false, reason: 'not_found' };
+    if (r.userId !== ownerUserId) return { ok: false, reason: 'forbidden' };
+    await prisma.request.delete({ where: { id } });
+    return { ok: true };
+  },
+
+  /** @deprecated Use deleteRequestForUser — kept if any code still calls soft-cancel */
   async cancelRequest(id) {
     return this.updateRequest(id, { status: 'cancelled' });
   },
@@ -186,6 +201,13 @@ export const store = {
 
     const provider = await prisma.provider.findUnique({ where: { id: providerId } }).catch(() => null)
       || (await prisma.provider.findFirst());
+    const effectiveProviderId = provider?.id || providerId;
+
+    const already = await prisma.bid.findFirst({
+      where: { requestId, providerId: effectiveProviderId },
+    });
+    if (already) return { duplicate: true };
+
     const computedDistance = provider
       ? haversineKm(req.lat, req.lng, provider.lat, provider.lng)
       : 1;
@@ -196,18 +218,25 @@ export const store = {
       ? payload.status
       : (payload.status || 'pending');
 
-    const bid = await prisma.bid.create({
-      data: {
-        requestId,
-        providerId: provider?.id || providerId,
-        providerName: provider?.name || 'Provider',
-        providerRating: provider?.rating ?? 4.5,
-        price: Number(payload.price),
-        availableTime: payload.availableTime || '',
-        message: payload.message || '',
-        distance,
-        status: status === 'approved' ? 'pending' : status,
-      },
+    const bid = await prisma.$transaction(async (tx) => {
+      const b = await tx.bid.create({
+        data: {
+          requestId,
+          providerId: effectiveProviderId,
+          providerName: provider?.name || 'Provider',
+          providerRating: provider?.rating ?? 4.5,
+          price: Number(payload.price),
+          availableTime: payload.availableTime || '',
+          message: payload.message || '',
+          distance,
+          status: status === 'approved' ? 'pending' : status,
+        },
+      });
+      await tx.request.updateMany({
+        where: { id: requestId, status: 'pending' },
+        data: { status: 'bidding' },
+      });
+      return b;
     });
     return mapBid(bid);
   },
@@ -239,8 +268,7 @@ export const store = {
     if (!userId || String(userId).trim() === '') return [];
     const provider = await prisma.provider.findUnique({ where: { userId } });
     if (!provider) return [];
-    console.log(provider);
-    
+
     const list = await prisma.bid.findMany({
       where: { providerId: provider.id, status: 'accepted' },
       include: { request: true },

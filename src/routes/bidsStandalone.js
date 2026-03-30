@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { store } from '../store.js';
+import prisma from '../db.js';
+import { emitToUser } from '../realtime.js';
 
 const router = Router();
 
@@ -23,6 +25,16 @@ router.post('/:id/accept', async (req, res, next) => {
     const bid = await store.acceptBid(req.params.id);
     if (!bid) return res.status(404).json({ error: 'not_found', message: 'Bid not found' });
     const reqEntity = await store.getRequest(bid.requestId);
+    if (reqEntity) {
+      emitToUser(reqEntity.userId, { type: 'request_updated', request: reqEntity });
+    }
+    const provider = await prisma.provider.findUnique({
+      where: { id: bid.providerId },
+      select: { userId: true },
+    });
+    if (provider?.userId) {
+      emitToUser(provider.userId, { type: 'provider_booking_changed' });
+    }
     res.json(reqEntity || bid);
   } catch (err) {
     next(err);
