@@ -3,6 +3,22 @@
  * Otherwise (or if no/invalid token), use default user so API works without auth.
  */
 import { getFirebaseAuth } from '../lib/firebaseAdmin.js';
+import { store } from '../store.js';
+
+/** Avoid DB work on every request: sweep at most once per user per interval. */
+const EXPIRED_BIDDING_SWEEP_MS = 120_000;
+const lastExpiredBiddingSweepAt = new Map();
+
+function scheduleExpireStaleBiddingSweep(userId) {
+  if (!userId || typeof userId !== 'string') return;
+  const now = Date.now();
+  const last = lastExpiredBiddingSweepAt.get(userId) ?? 0;
+  if (now - last < EXPIRED_BIDDING_SWEEP_MS) return;
+  lastExpiredBiddingSweepAt.set(userId, now);
+  store.expireStaleBiddingRequests(userId).catch((err) => {
+    console.error('[auth] expireStaleBiddingRequests', err);
+  });
+}
 
 async function optionalAuthHandler(req, res, next) {
   const defaultUserId = 'user1';
@@ -31,6 +47,7 @@ async function optionalAuthHandler(req, res, next) {
     req.userId = decoded.uid;
     req.userName = decoded.name || decoded.email || defaultUserName;
     req.userEmail = decoded.email || defaultUserEmail;
+    scheduleExpireStaleBiddingSweep(decoded.uid);
   } catch {
     req.userId = defaultUserId;
     req.userName = defaultUserName;

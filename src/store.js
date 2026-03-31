@@ -160,6 +160,24 @@ export const store = {
     return { ok: true };
   },
 
+  /**
+   * Hard-delete bidding requests for this user whose scheduled time has passed.
+   * Bids cascade-delete with the request.
+   * @returns {Promise<number>} number of rows removed
+   */
+  async expireStaleBiddingRequests(userId) {
+    const uid = userId != null ? String(userId).trim() : '';
+    if (!uid) return 0;
+    const result = await prisma.request.deleteMany({
+      where: {
+        userId: uid,
+        status: 'bidding',
+        requestedTime: { lt: new Date() },
+      },
+    });
+    return result.count;
+  },
+
   /** @deprecated Use deleteRequestForUser — kept if any code still calls soft-cancel */
   async cancelRequest(id) {
     return this.updateRequest(id, { status: 'cancelled' });
